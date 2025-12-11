@@ -1,50 +1,50 @@
-// middleware/authMiddleware.js
+// middleware/authMiddleware.js  (ESM)
 import jwt from "jsonwebtoken";
 import Admin from "../models/Admin.js";
 
-export const protectAdmin = async (req, res, next) => {
+const protectAdmin = async (req, res, next) => {
   try {
-    let token;
+    let token = null;
 
-    // 1️⃣ Try HttpOnly cookie first (recommended for security)
-    if (req.cookies && req.cookies.token) {
-      token = req.cookies.token;
-    }
-    // 2️⃣ Fallback to Authorization header: Bearer <token>
-    else if (req.headers.authorization?.startsWith("Bearer ")) {
+    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
       token = req.headers.authorization.split(" ")[1];
     }
+    if (!token && req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    }
 
-    // If no token from either source → not authorized
     if (!token) {
-      return res.status(401).json({
-        message: "Not authorized – no token provided",
-      });
+      console.warn("protectAdmin: no token provided");
+      return res.status(401).json({ message: "Not authorized - no token provided" });
     }
 
-    // 3️⃣ Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("protectAdmin: token length=", token.length);
 
-    // 4️⃣ Fetch admin from DB
-    const admin = await Admin.findById(decoded.id).select("-passwordHash");
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      console.error("protectAdmin: jwt.verify error ->", err?.message || err);
+      return res.status(401).json({ message: "Not authorized - token invalid", error: err?.message });
+    }
+
+    if (!decoded?.id) {
+      console.warn("protectAdmin: token missing decoded.id", decoded);
+      return res.status(401).json({ message: "Not authorized - token payload invalid" });
+    }
+
+    const admin = await Admin.findById(decoded.id).select("-password");
     if (!admin) {
-      return res.status(401).json({
-        message: "Not authorized – admin not found",
-      });
+      console.warn("protectAdmin: admin not found for id", decoded.id);
+      return res.status(401).json({ message: "Not authorized - admin not found" });
     }
 
-    // Attach admin to request
     req.admin = admin;
-
     next();
-  } catch (error) {
-    console.error("Auth middleware error:", error);
-
-    return res.status(401).json({
-      message:
-        error.name === "TokenExpiredError"
-          ? "Not authorized – token expired"
-          : "Not authorized – token invalid",
-    });
+  } catch (err) {
+    console.error("protectAdmin: unexpected error", err);
+    res.status(500).json({ message: "Server error in auth middleware" });
   }
 };
+
+export { protectAdmin };

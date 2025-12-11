@@ -4,8 +4,9 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import Admin from "../models/Admin.js";
 import dotenv from "dotenv";
-dotenv.config();
 import { protectAdmin } from "../middleware/authMiddleware.js";
+dotenv.config();
+
 
 const router = express.Router();
 
@@ -132,6 +133,7 @@ router.post("/reset-password", async (req, res) => {
 
 // Dev check route (for testing admin authentication)
 router.get("/dev", protectAdmin, (req, res) => {
+  console.log("DEV route hit by admin:", req.admin ? req.admin.email : "no req.admin");
   res.json({
     message: "Admin authenticated successfully",
     admin: {
@@ -141,7 +143,6 @@ router.get("/dev", protectAdmin, (req, res) => {
     }
   });
 });
-
 
 
 export default router;
