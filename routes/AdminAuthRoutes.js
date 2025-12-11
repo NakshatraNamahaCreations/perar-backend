@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import Admin from "../models/Admin.js";
 import dotenv from "dotenv";
 dotenv.config();
+import { protectAdmin } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -128,6 +129,19 @@ router.post("/reset-password", async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 });
+
+// Dev check route (for testing admin authentication)
+router.get("/dev", protectAdmin, (req, res) => {
+  res.json({
+    message: "Admin authenticated successfully",
+    admin: {
+      id: req.admin._id,
+      email: req.admin.email,
+      username: req.admin.username
+    }
+  });
+});
+
 
 
 export default router;
