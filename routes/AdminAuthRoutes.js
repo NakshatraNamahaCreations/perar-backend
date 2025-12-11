@@ -134,4 +134,33 @@ router.post("/login", async (req, res) => {
   }
 });
 
+router.post("/seed", async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
+
+    const existing = await Admin.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ message: "Admin already exists" });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
+
+    const admin = await Admin.create({ username, email, passwordHash });
+
+    res.json({
+      message: "Admin created",
+      admin: {
+        id: admin._id,
+        username: admin.username,
+        email: admin.email,
+      },
+    });
+  } catch (err) {
+    console.error("Seed admin error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
 export default router;
