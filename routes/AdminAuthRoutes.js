@@ -83,5 +83,34 @@ router.post("/reset-password", async (req, res) => {
   }
 });
 
+// DEV ONLY: /api/admin/dev-token?email=admin@example.com
+// Adds an easy way to issue a JWT for a seeded admin when shell/DB access isn't available.
+// IMPORTANT: Remove this route immediately after use.
+
+router.get("/dev-token", async (req, res) => {
+  try {
+    const email = req.query.email;
+    if (!email) return res.status(400).json({ message: "email query param required" });
+
+    const admin = await Admin.findOne({ email });
+    if (!admin) return res.status(404).json({ message: "Admin not found" });
+
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET missing");
+      return res.status(500).json({ message: "Server config error (JWT_SECRET missing)" });
+    }
+
+    const payload = { id: admin._id, email: admin.email, role: "admin" };
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+    // don't set cookie here — return token so frontend/Postman can use it
+    return res.json({ token, email: admin.email, username: admin.username, message: "DEV token issued — remove endpoint in production" });
+  } catch (err) {
+    console.error("DEV-TOKEN ERR:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+
 
 export default router;
