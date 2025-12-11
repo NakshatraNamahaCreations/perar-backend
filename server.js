@@ -26,7 +26,7 @@ app.use(cookieParser());
 const allowedOrigins = [
   "http://localhost:3000",          // CRA dev
   "http://localhost:5173",          // Vite dev
-  "https://your-site.netlify.app",  // Netlify frontend - replace
+  "https://perar-adminpanel.netlify.app",  // Netlify frontend - replace
   "https://www.yourdomain.com"      // your production domain - replace
 ];
 
