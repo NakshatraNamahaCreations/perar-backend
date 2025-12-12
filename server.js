@@ -5,11 +5,13 @@ import dotenv from "dotenv";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
+import path from "path";
 
 import { connectDB } from "./config/db.js";
 import adminAuthRoutes from "./routes/AdminAuthRoutes.js";
 import adminJobRoutes from "./routes/AdminJobRoutes.js";
 import publicJobRoutes from "./routes/PublicJobRoutes.js";
+import blogRoutes from "./routes/BlogRoutes.js"; // <-- new
 
 dotenv.config();
 const app = express();
@@ -54,10 +56,16 @@ app.use(limiter);
 // connect DB
 connectDB();
 
+// Serve uploaded files (ensure uploads/ exists in project root)
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
 // routes
 app.use("/api/admin", adminAuthRoutes);          // /login, (remove /seed in production)
 app.use("/api/admin/jobs", adminJobRoutes);      // admin job CRUD - protect with auth middleware
 app.use("/api/jobs", publicJobRoutes);           // public job listing
+
+// Blog routes (public + admin - creates use multer inside the router)
+app.use("/api/blogs", blogRoutes);
 
 app.get("/", (req, res) => {
   res.send("Job portal backend running");
@@ -66,6 +74,10 @@ app.get("/", (req, res) => {
 // Generic error handler
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err.message || err);
+  // if it's a CORS error thrown by our origin check, send 403
+  if (err.message && err.message.includes("CORS policy")) {
+    return res.status(403).json({ message: err.message });
+  }
   res.status(500).json({ message: err.message || "Server error" });
 });
 
