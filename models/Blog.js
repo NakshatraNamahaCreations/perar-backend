@@ -22,9 +22,8 @@ const BlogSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-BlogSchema.pre("save", function (next) {
+BlogSchema.pre("save", function () {
   this.updatedAt = Date.now();
-  next();
 });
 
 export default mongoose.models.Blog || mongoose.model("Blog", BlogSchema);
