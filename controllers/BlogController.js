@@ -2,23 +2,24 @@
 import Blog from "../models/Blog.js";
 import fs from "fs";
 import path from "path";
+import parseJSONSafe from "../utils/parseJSONSafe.js";
 
-/**
- * Helper: remove file if exists
- */
+/* remove a local file path (safe)
+   filePath is like "uploads/123-name.jpg" or "/uploads/123.jpg" */
 function removeFileIfExists(filePath) {
   if (!filePath) return;
-  const full = path.join(process.cwd(), filePath);
+  const normalized = filePath.startsWith("/") ? filePath.slice(1) : filePath;
+  const full = path.join(process.cwd(), normalized);
   fs.unlink(full, (err) => {
     if (err) {
-      // console.warn("Failed to remove file:", full, err.message);
+      // optional: console.warn("Could not delete file", full, err.message);
     }
   });
 }
 
 export const createBlog = async (req, res, next) => {
   try {
-    // multer puts files in req.files (object) or req.file
+    // Fields come from multipart/form-data
     const {
       city,
       title,
@@ -28,8 +29,9 @@ export const createBlog = async (req, res, next) => {
       services,
       faqs,
       redirectLink,
-    } = req.body;
+    } = req.body || {};
 
+    // Validate required
     if (!title || !metaTitle || !metaDescription || !description) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
@@ -40,12 +42,12 @@ export const createBlog = async (req, res, next) => {
       metaTitle,
       metaDescription,
       description,
-      services: services ? (typeof services === "string" ? JSON.parseSafe?.(services) ?? JSON.parse(services) : services) : [],
-      faqs: faqs ? (typeof faqs === "string" ? JSON.parse(faqs) : faqs) : [],
+      services: Array.isArray(services) ? services : (parseJSONSafe(services) || []),
+      faqs: Array.isArray(faqs) ? faqs : (parseJSONSafe(faqs) || []),
       redirectLink: redirectLink || "",
     });
 
-    // handle uploaded files from multer (fields: bannerImage, extraImage)
+    // files handled by multer: req.files.bannerImage, req.files.extraImage
     if (req.files) {
       if (req.files.bannerImage && req.files.bannerImage[0]) {
         blog.bannerImage = `/${req.files.bannerImage[0].path.replace(/\\/g, "/")}`;
@@ -107,14 +109,13 @@ export const updateBlog = async (req, res, next) => {
     if (metaDescription) existing.metaDescription = metaDescription;
     if (description) existing.description = description;
     if (city !== undefined) existing.city = city;
-    if (services) existing.services = typeof services === "string" ? JSON.parse(services) : services;
-    if (faqs) existing.faqs = typeof faqs === "string" ? JSON.parse(faqs) : faqs;
+    if (services) existing.services = Array.isArray(services) ? services : parseJSONSafe(services);
+    if (faqs) existing.faqs = Array.isArray(faqs) ? faqs : parseJSONSafe(faqs);
     if (redirectLink !== undefined) existing.redirectLink = redirectLink;
 
-    // files
+    // files (replace + cleanup)
     if (req.files) {
       if (req.files.bannerImage && req.files.bannerImage[0]) {
-        // remove old file (if present)
         if (existing.bannerImage) removeFileIfExists(existing.bannerImage);
         existing.bannerImage = `/${req.files.bannerImage[0].path.replace(/\\/g, "/")}`;
       }

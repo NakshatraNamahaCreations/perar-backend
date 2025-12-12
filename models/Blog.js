@@ -11,13 +11,13 @@ const BlogSchema = new mongoose.Schema({
   title: { type: String, required: true },
   metaTitle: { type: String, default: "" },
   metaDescription: { type: String, default: "" },
-  description: { type: String, default: "" }, // HTML stored as string
-  bannerImage: { type: String, default: "" }, // path /uploads/...
-  extraImage: { type: String, default: "" },  // optional
+  description: { type: String, default: "" }, // HTML
+  bannerImage: { type: String, default: "" }, // path like /uploads/xxx.jpg
+  extraImage: { type: String, default: "" },
   services: [{ type: String }],
   faqs: [FaqSchema],
   redirectLink: { type: String, default: "" },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", default: null }, // if you track admin
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", default: null },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
