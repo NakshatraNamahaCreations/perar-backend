@@ -19,6 +19,27 @@ function removeFileIfExists(filePath) {
 
 export const createBlog = async (req, res, next) => {
   try {
+    // >>> DEBUG: show incoming headers / body / files
+    console.log("=== createBlog: headers.content-type ->", req.headers["content-type"]);
+    console.log("=== createBlog: raw req.body ->", req.body);
+    // summarize files (avoid huge output)
+    if (req.files) {
+      const filesSummary = Object.keys(req.files).reduce((acc, key) => {
+        acc[key] = req.files[key].map(f => ({
+          fieldname: f.fieldname,
+          originalname: f.originalname,
+          mimetype: f.mimetype,
+          size: f.size,
+          path: f.path
+        }));
+        return acc;
+      }, {});
+      console.log("=== createBlog: req.files summary ->", JSON.stringify(filesSummary, null, 2));
+    } else {
+      console.log("=== createBlog: req.files ->", req.files);
+    }
+    // >>> end debug
+
     // Fields come from multipart/form-data
     const {
       city,
@@ -31,16 +52,19 @@ export const createBlog = async (req, res, next) => {
       redirectLink,
     } = req.body || {};
 
-    // Validate required
-    if (!title || !metaTitle || !metaDescription || !description) {
+    // Safer validation (trim strings)
+    const required = [title, metaTitle, metaDescription, description];
+    const ok = required.every((v) => typeof v === "string" && v.trim().length > 0);
+    if (!ok) {
+      console.warn("createBlog: Validation failed - required fields missing or empty");
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
     const blog = new Blog({
       city: city || "",
-      title,
-      metaTitle,
-      metaDescription,
+      title: title.trim(),
+      metaTitle: metaTitle.trim(),
+      metaDescription: metaDescription.trim(),
       description,
       services: Array.isArray(services) ? services : (parseJSONSafe(services) || []),
       faqs: Array.isArray(faqs) ? faqs : (parseJSONSafe(faqs) || []),
@@ -63,6 +87,7 @@ export const createBlog = async (req, res, next) => {
     next(err);
   }
 };
+
 
 export const getBlogs = async (req, res, next) => {
   try {
