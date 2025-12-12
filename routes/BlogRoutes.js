@@ -1,70 +1,61 @@
-// controllers/BlogController.js  (replace previous createBlog)
-export const createBlog = async (req, res, next) => {
-  try {
-    console.log("=== createBlog: headers.content-type ->", req.headers["content-type"]);
-    console.log("=== createBlog: raw req.body ->", req.body);
-    if (req.files) {
-      const filesSummary = Object.keys(req.files).reduce((acc, key) => {
-        acc[key] = req.files[key].map(f => ({
-          fieldname: f.fieldname,
-          originalname: f.originalname,
-          mimetype: f.mimetype,
-          size: f.size,
-          path: f.path
-        }));
-        return acc;
-      }, {});
-      console.log("=== createBlog: req.files summary ->", JSON.stringify(filesSummary, null, 2));
-    } else {
-      console.log("=== createBlog: req.files ->", req.files);
+// routes/BlogRoutes.js
+import express from "express";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import {
+  createBlog,
+  getBlogs,
+  getBlogById,
+  updateBlog,
+  deleteBlog,
+} from "../controllers/BlogController.js";
+
+const router = express.Router();
+
+// ensure uploads dir exists
+const uploadsDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+// multer config (stores files in ./uploads)
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "uploads/"),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const base = path.basename(file.originalname, ext).replace(/\s+/g, "-");
+    cb(null, `${Date.now()}-${base}${ext}`);
+  },
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 4 * 1024 * 1024 }, // 4 MB
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith("image/")) {
+      return cb(new Error("Only image files are allowed"), false);
     }
+    cb(null, true);
+  },
+});
 
-    const {
-      city = "",
-      title,
-      metaTitle = "",
-      metaDescription = "",
-      description,
-      services,
-      faqs,
-      redirectLink = "",
-    } = req.body || {};
+// PUBLIC routes
+// NOTE: pass handler references (no parentheses)
+router.get("/", getBlogs);
+router.get("/:id", getBlogById);
 
-    // require only title and description
-    const missing = [];
-    if (!title || typeof title !== "string" || title.trim().length === 0) missing.push("title");
-    if (!description || typeof description !== "string" || description.trim().length === 0) missing.push("description");
+// ADMIN / PROTECTED routes (add your auth middleware before the handler if needed)
+// multer middleware must be before the handler so req.files is populated
+router.post(
+  "/",
+  upload.fields([{ name: "bannerImage" }, { name: "extraImage" }]),
+  createBlog
+);
 
-    if (missing.length) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields: " + missing.join(", "),
-      });
-    }
+router.put(
+  "/:id",
+  upload.fields([{ name: "bannerImage" }, { name: "extraImage" }]),
+  updateBlog
+);
 
-    const blog = new Blog({
-      city,
-      title: title.trim(),
-      metaTitle: metaTitle ? metaTitle.trim() : "",
-      metaDescription: metaDescription ? metaDescription.trim() : "",
-      description,
-      services: Array.isArray(services) ? services : (parseJSONSafe(services) || []),
-      faqs: Array.isArray(faqs) ? faqs : (parseJSONSafe(faqs) || []),
-      redirectLink,
-    });
+router.delete("/:id", deleteBlog);
 
-    if (req.files) {
-      if (req.files.bannerImage && req.files.bannerImage[0]) {
-        blog.bannerImage = `/${req.files.bannerImage[0].path.replace(/\\/g, "/")}`;
-      }
-      if (req.files.extraImage && req.files.extraImage[0]) {
-        blog.extraImage = `/${req.files.extraImage[0].path.replace(/\\/g, "/")}`;
-      }
-    }
-
-    const saved = await blog.save();
-    res.status(201).json({ success: true, data: saved });
-  } catch (err) {
-    next(err);
-  }
-};
+export default router;
