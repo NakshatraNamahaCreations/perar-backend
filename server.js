@@ -11,77 +11,105 @@ import { connectDB } from "./config/db.js";
 import adminAuthRoutes from "./routes/AdminAuthRoutes.js";
 import adminJobRoutes from "./routes/AdminJobRoutes.js";
 import publicJobRoutes from "./routes/PublicJobRoutes.js";
-import blogRoutes from "./routes/BlogRoutes.js"; // <-- new
+import blogRoutes from "./routes/BlogRoutes.js";
 
 dotenv.config();
 const app = express();
 
-// Security headers
-app.use(helmet());
+/* ---------------- HELMET ---------------- */
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+    crossOriginEmbedderPolicy: false
+  })
+);
 
-// Body + cookie parsing
+/* ---------------- BODY PARSING ---------------- */
 app.use(express.json());
 app.use(cookieParser());
 
-// --- CORS ---
-// Allow requests from your frontend origins only (add Netlify / production domain here)
-const allowedOrigins = [
-  "http://localhost:3000",          // CRA dev
-  "http://localhost:5173",          // Vite dev
-  "https://perar-adminpanel.netlify.app",  // Netlify frontend - replace
-  "https://www.yourdomain.com"      // your production domain - replace
-];
+/* ---------------- CORS (FINAL FIX) ---------------- */
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow server-to-server, Postman, curl
+      if (!origin) return callback(null, true);
 
-app.use(cors({
-  origin: (origin, callback) => {
-    // allow requests with no origin (e.g., curl, mobile apps, server-to-server)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      return callback(new Error("CORS policy: This origin is not allowed"), false);
-    }
-    return callback(null, true);
-  },
-  credentials: true // <-- IMPORTANT: allow cookies to be sent/received
-}));
+      // ✅ Allow ALL localhost ports
+      if (origin.startsWith("http://localhost")) {
+        return callback(null, true);
+      }
 
-// Basic rate limiting to prevent brute force
+      // ✅ Allow ALL Netlify deployments
+      if (origin.endsWith(".netlify.app")) {
+        return callback(null, true);
+      }
+
+      // ✅ Optional: allow your custom domains
+      const allowedDomains = [
+        "https://www.yourdomain.com"
+      ];
+
+      if (allowedDomains.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("CORS policy: Origin not allowed"), false);
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+    optionsSuccessStatus: 200
+  })
+);
+
+/* ---------------- DATABASE ---------------- */
+connectDB();
+
+/* ---------------- STATIC FILES ---------------- */
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
+/* ---------------- ROUTES ---------------- */
+
+// Admin auth
+app.use("/api/admin", adminAuthRoutes);
+
+// Admin job CRUD (protected)
+app.use("/api/admin/jobs", adminJobRoutes);
+
+// ✅ Public job APIs
+app.use("/api/jobs", publicJobRoutes);
+
+// Blogs
+app.use("/api/blogs", blogRoutes);
+
+/* ---------------- RATE LIMIT (AFTER ROUTES) ---------------- */
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200,                 // limit each IP
+  windowMs: 15 * 60 * 1000,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false
 });
 app.use(limiter);
 
-// connect DB
-connectDB();
-
-// Serve uploaded files (ensure uploads/ exists in project root)
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
-
-// routes
-app.use("/api/admin", adminAuthRoutes);          // /login, (remove /seed in production)
-app.use("/api/admin/jobs", adminJobRoutes);      // admin job CRUD - protect with auth middleware
-app.use("/api/jobs", publicJobRoutes);           // public job listing
-
-// Blog routes (public + admin - creates use multer inside the router)
-app.use("/api/blogs", blogRoutes);
-
+/* ---------------- HEALTH CHECK ---------------- */
 app.get("/", (req, res) => {
-  res.send("Job portal backend running");
+  res.send("✅ Job portal backend running");
 });
 
-// Generic error handler
+/* ---------------- ERROR HANDLER ---------------- */
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err.message || err);
-  // if it's a CORS error thrown by our origin check, send 403
-  if (err.message && err.message.includes("CORS policy")) {
+
+  if (err.message?.includes("CORS")) {
     return res.status(403).json({ message: err.message });
   }
+
   res.status(500).json({ message: err.message || "Server error" });
 });
 
-// Listen on 0.0.0.0 so host can route traffic (important for some PaaS)
-// Use process.env.PORT set by the host platform
+/* ---------------- SERVER ---------------- */
 const PORT = process.env.PORT || 8030;
-app.listen(PORT, "0.0.0.0", () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`✅ Server running on port ${PORT}`);
+});
