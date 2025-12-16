@@ -49,12 +49,24 @@ router.get("/", async (req, res) => {
   try {
     const candidates = await Candidate.find()
       .populate("jobId", "title location jobType")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
-    res.json(candidates);
+    const FALLBACK_RESUME = "/uploads/resumes/default-resume.pdf";
+
+    const safeCandidates = candidates.map(c => ({
+      ...c,
+      resume:
+        c.resume && c.resume.startsWith("uploads/")
+          ? `/${c.resume}`
+          : FALLBACK_RESUME
+    }));
+
+    res.json(safeCandidates);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch candidates" });
   }
 });
+
 
 export default router;
