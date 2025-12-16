@@ -52,7 +52,7 @@ router.get("/", async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    const FALLBACK_RESUME = "/uploads/resumes/default-resume.pdf";
+    const FALLBACK_RESUME = "uploads/resumes/default-resume.pdf";
 
     const safeCandidates = candidates.map(c => ({
       ...c,
