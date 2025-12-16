@@ -7,10 +7,6 @@ const candidateSchema = new mongoose.Schema(
       ref: "Job",
       required: true
     },
-    jobTitle: {
-      type: String,
-      required: true
-    },
     resume: {
       type: String,
       required: true
@@ -18,7 +14,5 @@ const candidateSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
-candidateSchema.index({ createdAt: -1 });
 
 export default mongoose.model("Candidate", candidateSchema);

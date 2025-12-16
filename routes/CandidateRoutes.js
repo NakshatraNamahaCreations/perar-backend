@@ -1,22 +1,13 @@
 import express from "express";
 import multer from "multer";
-import fs from "fs";
-import path from "path";
 import Candidate from "../models/Candidate.js";
 
 const router = express.Router();
 
-/* ---------- ENSURE UPLOAD FOLDER EXISTS ---------- */
-const uploadDir = path.join(process.cwd(), "uploads/resumes");
-
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-/* ---------- MULTER CONFIG ---------- */
+/* ---------- MULTER SETUP ---------- */
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, uploadDir);
+    cb(null, "uploads/resumes");
   },
   filename: (req, file, cb) => {
     cb(null, `${Date.now()}-${file.originalname}`);
@@ -25,17 +16,19 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-/* ---------- POST CANDIDATE ---------- */
+/* ---------- POST: APPLY JOB ---------- */
 router.post("/", upload.single("cv"), async (req, res) => {
   try {
-    if (!req.file || !req.body.jobId) {
+    const { jobId } = req.body;
+
+    if (!jobId || !req.file) {
       return res.status(400).json({
-        message: "Job ID and resume required"
+        message: "jobId and resume file are required"
       });
     }
 
     const candidate = await Candidate.create({
-      jobId: req.body.jobId,
+      jobId,
       resume: req.file.path
     });
 
@@ -43,11 +36,24 @@ router.post("/", upload.single("cv"), async (req, res) => {
       message: "Application submitted successfully",
       candidate
     });
-  } catch (err) {
-    console.error("Candidate upload error:", err);
+  } catch (error) {
+    console.error("Candidate submit error:", error);
     res.status(500).json({
       message: "Failed to submit application"
     });
+  }
+});
+
+/* ---------- GET: ALL CANDIDATES (ADMIN) ---------- */
+router.get("/", async (req, res) => {
+  try {
+    const candidates = await Candidate.find()
+      .populate("jobId", "title location jobType")
+      .sort({ createdAt: -1 });
+
+    res.json(candidates);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch candidates" });
   }
 });
 
