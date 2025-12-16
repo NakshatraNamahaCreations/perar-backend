@@ -12,6 +12,10 @@ const isLocalFile = (p) => {
   return !(p.startsWith('http://') || p.startsWith('https://') || p.startsWith('data:'));
 };
 
+// ADD THIS NEAR THE TOP
+const normalizePath = (p) => p.replace(/\\/g, "/");
+
+
 /**
  * Remove a local file if it exists. Accepts paths like:
  *  - '/uploads/123-name.png'
@@ -42,8 +46,14 @@ export const createBlog = async (req, res) => {
 
     // files uploaded by multer (if any)
     const files = req.files || {};
-    const bannerImage = files.bannerImage?.[0]?.path || req.body.bannerImage || '';
-    const extraImage = files.extraImage?.[0]?.path || req.body.extraImage || '';
+   const bannerImage = files.bannerImage?.[0]?.path
+  ? normalizePath(files.bannerImage[0].path)
+  : "";
+
+const extraImage = files.extraImage?.[0]?.path
+  ? normalizePath(files.extraImage[0].path)
+  : "";
+
 
     // try parse arrays if sent as JSON strings from form-data
     let servicesArr = services;
