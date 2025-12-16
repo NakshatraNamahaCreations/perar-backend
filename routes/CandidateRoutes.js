@@ -4,6 +4,7 @@ import Candidate from "../models/Candidate.js";
 
 const router = express.Router();
 
+/* ---------- MULTER ---------- */
 const storage = multer.diskStorage({
   destination: "uploads/resumes",
   filename: (req, file, cb) => {
@@ -13,6 +14,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+/* ---------- POST: APPLY JOB ---------- */
 router.post("/", upload.single("cv"), async (req, res) => {
   try {
     if (!req.file || !req.body.jobId) {
@@ -29,7 +31,22 @@ router.post("/", upload.single("cv"), async (req, res) => {
       candidate
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Failed to submit application" });
+  }
+});
+
+/* ---------- GET: ALL CANDIDATES (ADMIN) ---------- */
+router.get("/", async (req, res) => {
+  try {
+    const candidates = await Candidate.find()
+      .populate("jobId", "title location jobType")
+      .sort({ createdAt: -1 });
+
+    res.json(candidates);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch candidates" });
   }
 });
 
