@@ -12,6 +12,7 @@ import adminAuthRoutes from "./routes/AdminAuthRoutes.js";
 import adminJobRoutes from "./routes/AdminJobRoutes.js";
 import publicJobRoutes from "./routes/PublicJobRoutes.js";
 import blogRoutes from "./routes/BlogRoutes.js";
+import CandidateRoutes from "./routes/CandidateRoutes.js";
 
 dotenv.config();
 const app = express();
@@ -82,6 +83,9 @@ app.use("/api/jobs", publicJobRoutes);
 
 // Blogs
 app.use("/api/blogs", blogRoutes);
+
+// Candidate 
+app.use("/api/candidates", CandidateRoutes);
 
 /* ---------------- RATE LIMIT (AFTER ROUTES) ---------------- */
 const limiter = rateLimit({
