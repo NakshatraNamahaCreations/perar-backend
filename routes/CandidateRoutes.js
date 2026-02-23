@@ -58,7 +58,7 @@ router.get("/", async (req, res) => {
       ...c,
       resume:
         c.resume && c.resume.startsWith("uploads/")
-          ? `/${c.resume}`
+          ? `${c.resume}`
           : FALLBACK_RESUME
     }));
 

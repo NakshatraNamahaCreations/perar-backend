@@ -46,9 +46,16 @@ app.use(
         return callback(null, true);
       }
 
+      if (
+  origin === "https://perarinfotech.com" ||
+  origin.endsWith(".perarinfotech.com")
+) {
+  return callback(null, true);
+}
+
       // ✅ Optional: allow your custom domains
       const allowedDomains = [
-        "https://www.yourdomain.com"
+        "https://perarinfotect.com","https://admin.perarinfotech.com/login", "https://admin.perarinfotech.com"
       ];
 
       if (allowedDomains.includes(origin)) {
