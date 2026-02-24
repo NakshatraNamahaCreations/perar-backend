@@ -6,6 +6,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import path from "path";
+import { fileURLToPath } from "url";
 
 import { connectDB } from "./config/db.js";
 import adminAuthRoutes from "./routes/AdminAuthRoutes.js";
@@ -17,98 +18,90 @@ import CandidateRoutes from "./routes/CandidateRoutes.js";
 dotenv.config();
 const app = express();
 
-/* ---------------- HELMET ---------------- */
+/* ================= FIX __dirname (ESM SUPPORT) ================= */
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+/* ================= HELMET ================= */
 app.use(
   helmet({
     crossOriginResourcePolicy: false,
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
   })
 );
 
-/* ---------------- BODY PARSING ---------------- */
+/* ================= BODY PARSING ================= */
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-/* ---------------- CORS (FINAL FIX) ---------------- */
+/* ================= CORS CONFIG (EXPRESS 5 SAFE) ================= */
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://admin.perarinfotech.com",
+  "https://perarinfotech.com",
+  "https://www.perarinfotech.com",
+];
+
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow server-to-server, Postman, curl
+    origin: function (origin, callback) {
+      // Allow Postman or server-to-server requests
       if (!origin) return callback(null, true);
 
-      // ✅ Allow ALL localhost ports
-      if (origin.startsWith("http://localhost")) {
+      if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      // ✅ Allow ALL Netlify deployments
-      if (origin.endsWith(".netlify.app")) {
-        return callback(null, true);
-      }
-
-      if (
-  origin === "https://perarinfotech.com" ||
-  origin.endsWith(".perarinfotech.com")
-) {
-  return callback(null, true);
-}
-
-      // ✅ Optional: allow your custom domains
-      const allowedDomains = [
-        "https://perarinfotect.com","https://admin.perarinfotech.com/login", "https://admin.perarinfotech.com"
-      ];
-
-      if (allowedDomains.includes(origin)) {
-        return callback(null, true);
-      }
-
-      return callback(new Error("CORS policy: Origin not allowed"), false);
+      return callback(new Error("Not allowed by CORS"));
     },
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
-    optionsSuccessStatus: 200
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-/* ---------------- DATABASE ---------------- */
+/* ================= DATABASE ================= */
 connectDB();
 
-/* ---------------- STATIC FILES ---------------- */
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+/* ================= STATIC FILES ================= */
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-/* ---------------- ROUTES ---------------- */
+/* ================= ROUTES ================= */
 
-// Admin auth
+// Admin Auth
 app.use("/api/admin", adminAuthRoutes);
 
-// Admin job CRUD (protected)
+// Admin Job CRUD
 app.use("/api/admin/jobs", adminJobRoutes);
 
-// ✅ Public job APIs
+// Public Jobs
 app.use("/api/jobs", publicJobRoutes);
 
 // Blogs
 app.use("/api/blogs", blogRoutes);
 
-// Candidate 
+// Candidates
 app.use("/api/candidates", CandidateRoutes);
 
-/* ---------------- RATE LIMIT (AFTER ROUTES) ---------------- */
+/* ================= RATE LIMIT ================= */
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
 });
+
 app.use(limiter);
 
-/* ---------------- HEALTH CHECK ---------------- */
+/* ================= HEALTH CHECK ================= */
 app.get("/", (req, res) => {
   res.send("✅ Job portal backend running");
 });
 
-/* ---------------- ERROR HANDLER ---------------- */
+/* ================= ERROR HANDLER ================= */
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err.message || err);
 
@@ -116,11 +109,14 @@ app.use((err, req, res, next) => {
     return res.status(403).json({ message: err.message });
   }
 
-  res.status(500).json({ message: err.message || "Server error" });
+  res.status(500).json({
+    message: err.message || "Server error",
+  });
 });
 
-/* ---------------- SERVER ---------------- */
+/* ================= START SERVER ================= */
 const PORT = process.env.PORT || 8030;
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
